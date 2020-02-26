@@ -10,6 +10,7 @@ from torch import optim
 import torch.nn.functional as F
 import csv
 import random
+import random
 import re
 import os
 import unicodedata
@@ -17,6 +18,7 @@ import codecs
 from io import open
 import itertools
 import math
+
 
 # Default word tokens
 PAD_token = 0  # Used for padding short sentences
@@ -228,16 +230,5 @@ def output_var(l, voc):
     mask = torch.BoolTensor(mask)
     pad_var = torch.LongTensor(pad_list)
     return pad_var, mask, max_target_len
-
-# Returns all items for a given batch of pairs
-def batch2train_data(voc, pair_batch):
-    pair_batch.sort(key=lambda x: len(x[0].split(" ")), reverse=True)
-    input_batch, output_batch = [], []
-    for pair in pair_batch:
-        input_batch.append(pair[0])
-        output_batch.append(pair[1])
-    inp, lengths = input_var(input_batch, voc)
-    output, mask, max_target_len = output_var(output_batch, voc)
-    return inp, lengths, output, mask, max_target_len
 
 

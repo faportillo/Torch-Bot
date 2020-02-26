@@ -18,9 +18,13 @@ from io import open
 import itertools
 import math
 from utils import *
+from train_model import *
+from eval_model import *
+from models import *
 
 USE_CUDA = torch.cuda.is_available()
 device = torch.device("cuda" if USE_CUDA else "cpu")
+MAX_LENGTH = 10  # Maximum sentence length to consider
 
 def maskNLLLoss(inp, target, mask):
     nTotal = mask.sum()
@@ -29,10 +33,22 @@ def maskNLLLoss(inp, target, mask):
     loss = loss.to(device)
     return loss, nTotal.item()
 
+# Returns all items for a given batch of pairs
+def batch2train_data(voc, pair_batch):
+    pair_batch.sort(key=lambda x: len(x[0].split(" ")), reverse=True)
+    input_batch, output_batch = [], []
+    for pair in pair_batch:
+        input_batch.append(pair[0])
+        output_batch.append(pair[1])
+    inp, lengths = input_var(input_batch, voc)
+    output, mask, max_target_len = output_var(output_batch, voc)
+    return inp, lengths, output, mask, max_target_len
+
+
 def train(input_variable, lengths, target_variable,
-          mask, max_target_len, encoder, decoder, embedding,
+          mask, max_target_len, encoder, decoder,
           encoder_optimizer, decoder_optimizer,
-          batch_size, clip, max_length=MAX_LENGTH):
+          batch_size, clip, teacher_forcing_ratio=1.0):
 
     # Zero gradients
     encoder_optimizer.zero_grad()
@@ -107,9 +123,9 @@ def trainIters(model_name, voc, pairs, encoder, decoder,
                embedding, encoder_n_layers,
                decoder_n_layers, save_dir, n_iteration,
                batch_size, print_every, save_every, clip,
-               corpus_name, loadFilename):
+               corpus_name, loadFilename, hidden_size, teacher_forcing_ratio):
     # Load batches for each iteration
-    training_batches = [batch2TrainData(voc, [random.choice(pairs) for _ in range(batch_size)])
+    training_batches = [batch2train_data(voc, [random.choice(pairs) for _ in range(batch_size)])
                         for _ in range(n_iteration)]
 
     # Initializations
@@ -129,8 +145,8 @@ def trainIters(model_name, voc, pairs, encoder, decoder,
         # Run a training iteration with batch
         loss = train(input_variable, lengths, target_variable,
                      mask, max_target_len, encoder,
-                     decoder, embedding, encoder_optimizer,
-                     decoder_optimizer, batch_size, clip)
+                     decoder, encoder_optimizer,
+                     decoder_optimizer, batch_size, clip, teacher_forcing_ratio=teacher_forcing_ratio)
         print_loss += loss
 
         # Print progress
